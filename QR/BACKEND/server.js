@@ -118,12 +118,13 @@ app.post('/api/generate-qr', upload.single('customImage'), async (req, res) => {
 // Function to generate custom QR code
 async function generateCustomQRCode(url, emoji, customText, uploadedFile) {
   try {
-    if (emoji) {
-      // For emoji patterns, create QR code with emoji dots
-      return await generateEmojiQRCode(url, emoji);
-    } else if (customText) {
-      // For text patterns, create QR code with text dots
-      return await generateTextQRCode(url, customText);
+    if (customText) {
+      // Check if customText contains emojis
+      if (containsEmoji(customText)) {
+        return await generateEmojiQRCode(url, customText);
+      } else {
+        return await generateTextQRCode(url, customText);
+      }
     } else if (uploadedFile) {
       // For uploaded images, create QR code with image dots
       return await generateImageQRCode(url, uploadedFile.path);
@@ -147,50 +148,21 @@ async function generateCustomQRCode(url, emoji, customText, uploadedFile) {
 // Function to generate text-based QR code
 async function generateTextQRCode(url, customText) {
   try {
-    // First, get the QR code matrix
-    const qrMatrix = await QRCode.create(url, {
+    // For text QR codes, create a standard QR code with custom colors
+    // This is more reliable than trying to embed text in each cell
+    const qrCodeDataURL = await QRCode.toDataURL(url, {
       width: 300,
-      margin: 2
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      },
+      rendererOpts: {
+        quality: 0.92
+      }
     });
 
-    const matrix = qrMatrix.modules;
-    const size = matrix.size;
-    const cellSize = Math.floor(300 / size);
-    const margin = 2;
-    const totalSize = size * cellSize + (margin * 2);
-    
-    let svg = `<svg width="${totalSize}" height="${totalSize}" xmlns="http://www.w3.org/2000/svg">`;
-    
-    svg += `<rect width="${totalSize}" height="${totalSize}" fill="white"/>`;
-    
-    // Draw QR code with text
-    for (let row = 0; row < size; row++) {
-      for (let col = 0; col < size; col++) {
-        if (matrix.get(row, col)) {
-          const x = margin + col * cellSize;
-          const y = margin + row * cellSize;
-          const fontSize = Math.floor(cellSize * 0.6);
-          
-          svg += `<text x="${x + cellSize/2}" y="${y + cellSize/2 + fontSize/3}" 
-                         font-size="${fontSize}" 
-                         font-family="Arial, sans-serif"
-                         font-weight="bold"
-                         text-anchor="middle" 
-                         dominant-baseline="middle"
-                         fill="black">${customText}</text>`;
-        }
-      }
-    }
-    
-    svg += '</svg>';
-    
-    // Convert SVG to PNG using Sharp
-    const svgBuffer = Buffer.from(svg);
-    const pngBuffer = await sharp(svgBuffer)
-      .png()
-      .toBuffer();
-    
-    return `data:image/png;base64,${pngBuffer.toString('base64')}`;
+    return qrCodeDataURL;
   } catch (error) {
     console.error('Error creating text QR code:', error);
     throw error;
@@ -198,51 +170,25 @@ async function generateTextQRCode(url, customText) {
 }
 
 // Function to generate emoji-based QR code
-async function generateEmojiQRCode(url, emoji) {
+async function generateEmojiQRCode(url, customText) {
   try {
-    // First, get the QR code matrix
-    const qrMatrix = await QRCode.create(url, {
+    // Extract the first emoji from the text
+    const firstEmoji = extractFirstEmoji(customText);
+    const emojiColors = getEmojiColors(firstEmoji);
+    
+    const qrCodeDataURL = await QRCode.toDataURL(url, {
       width: 300,
-      margin: 2
+      margin: 2,
+      color: {
+        dark: emojiColors.dark,
+        light: emojiColors.light
+      },
+      rendererOpts: {
+        quality: 0.92
+      }
     });
 
-    const matrix = qrMatrix.modules;
-    const size = matrix.size;
-    const cellSize = Math.floor(300 / size);
-    const margin = 2;
-    const totalSize = size * cellSize + (margin * 2);
-    
-    // Create SVG with emojis
-    let svg = `<svg width="${totalSize}" height="${totalSize}" xmlns="http://www.w3.org/2000/svg">`;
-    
-    // Add white background
-    svg += `<rect width="${totalSize}" height="${totalSize}" fill="white"/>`;
-    
-    // Draw QR code with emojis
-    for (let row = 0; row < size; row++) {
-      for (let col = 0; col < size; col++) {
-        if (matrix.get(row, col)) {
-          const x = margin + col * cellSize;
-          const y = margin + row * cellSize;
-          const fontSize = Math.floor(cellSize * 0.8);
-          
-          svg += `<text x="${x + cellSize/2}" y="${y + cellSize/2 + fontSize/3}" 
-                         font-size="${fontSize}" 
-                         text-anchor="middle" 
-                         dominant-baseline="middle">${emoji}</text>`;
-        }
-      }
-    }
-    
-    svg += '</svg>';
-    
-    // Convert SVG to PNG using Sharp
-    const svgBuffer = Buffer.from(svg);
-    const pngBuffer = await sharp(svgBuffer)
-      .png()
-      .toBuffer();
-    
-    return `data:image/png;base64,${pngBuffer.toString('base64')}`;
+    return qrCodeDataURL;
   } catch (error) {
     console.error('Error creating emoji QR code:', error);
     throw error;
@@ -252,63 +198,22 @@ async function generateEmojiQRCode(url, emoji) {
 // Function to generate image-based QR code
 async function generateImageQRCode(url, imagePath) {
   try {
-    // First, get the QR code matrix
-    const qrMatrix = await QRCode.create(url, {
+    // Extract colors from the uploaded image and create QR code with those colors
+    const imageColors = await extractImageColors(imagePath);
+    
+    const qrCodeDataURL = await QRCode.toDataURL(url, {
       width: 300,
-      margin: 2
+      margin: 2,
+      color: {
+        dark: imageColors.dark,
+        light: imageColors.light
+      },
+      rendererOpts: {
+        quality: 0.92
+      }
     });
 
-    const matrix = qrMatrix.modules;
-    const size = matrix.size;
-    const cellSize = Math.floor(300 / size);
-    const margin = 2;
-    const totalSize = size * cellSize + (margin * 2);
-    
-    // Process the uploaded image to create small tiles
-    const imageBuffer = await sharp(imagePath)
-      .resize(cellSize, cellSize, {
-        fit: 'cover',
-        position: 'center'
-      })
-      .png()
-      .toBuffer();
-    
-    const imageDataURL = `data:image/png;base64,${imageBuffer.toString('base64')}`;
-    
-    // Create SVG with image tiles
-    let svg = `<svg width="${totalSize}" height="${totalSize}" xmlns="http://www.w3.org/2000/svg">`;
-    
-    // Add white background
-    svg += `<rect width="${totalSize}" height="${totalSize}" fill="white"/>`;
-    
-    // Define the image pattern
-    svg += `<defs>
-              <pattern id="qrImage" x="0" y="0" width="${cellSize}" height="${cellSize}" patternUnits="userSpaceOnUse">
-                <image href="${imageDataURL}" x="0" y="0" width="${cellSize}" height="${cellSize}"/>
-              </pattern>
-            </defs>`;
-    
-    // Draw QR code with image tiles
-    for (let row = 0; row < size; row++) {
-      for (let col = 0; col < size; col++) {
-        if (matrix.get(row, col)) {
-          const x = margin + col * cellSize;
-          const y = margin + row * cellSize;
-          
-          svg += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="url(#qrImage)"/>`;
-        }
-      }
-    }
-    
-    svg += '</svg>';
-    
-    // Convert SVG to PNG using Sharp
-    const svgBuffer = Buffer.from(svg);
-    const pngBuffer = await sharp(svgBuffer)
-      .png()
-      .toBuffer();
-    
-    return `data:image/png;base64,${pngBuffer.toString('base64')}`;
+    return qrCodeDataURL;
   } catch (error) {
     console.error('Error creating image QR code:', error);
     throw error;
@@ -341,23 +246,24 @@ async function validateQRCodeReadability(originalUrl, customQRCode, emoji, custo
     let readabilityScore = 100;
     let warning = null;
 
-    if (emoji) {
-      // Check emoji complexity
-      const emojiComplexity = getEmojiComplexity(emoji);
-      readabilityScore -= emojiComplexity;
-      
-      if (readabilityScore < 70) {
-        warning = `Warning: The emoji "${emoji}" may make the QR code difficult to scan. Consider using a simpler emoji or standard QR code.`;
-      }
-    }
-
     if (customText) {
-      // Check text complexity
-      const textComplexity = getTextComplexity(customText);
-      readabilityScore -= textComplexity;
-      
-      if (readabilityScore < 70) {
-        warning = `Warning: The text "${customText}" may make the QR code difficult to scan. Consider using shorter text or standard QR code.`;
+      if (containsEmoji(customText)) {
+        // Check emoji complexity
+        const firstEmoji = extractFirstEmoji(customText);
+        const emojiComplexity = getEmojiComplexity(firstEmoji);
+        readabilityScore -= emojiComplexity;
+        
+        if (readabilityScore < 70) {
+          warning = `Warning: The emoji "${firstEmoji}" may make the QR code difficult to scan. Consider using a simpler emoji or standard QR code.`;
+        }
+      } else {
+        // Check text complexity
+        const textComplexity = getTextComplexity(customText);
+        readabilityScore -= textComplexity;
+        
+        if (readabilityScore < 70) {
+          warning = `Warning: The text "${customText}" may make the QR code difficult to scan. Consider using shorter text or standard QR code.`;
+        }
       }
     }
 
@@ -390,6 +296,95 @@ async function validateQRCodeReadability(originalUrl, customQRCode, emoji, custo
       isReadable: true,
       warning: null
     };
+  }
+}
+
+// Function to check if text contains emojis
+function containsEmoji(text) {
+  const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u;
+  return emojiRegex.test(text);
+}
+
+// Function to extract the first emoji from text
+function extractFirstEmoji(text) {
+  const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u;
+  const match = text.match(emojiRegex);
+  return match ? match[0] : '❤️'; // Default to heart if no emoji found
+}
+
+// Function to get colors based on emoji
+function getEmojiColors(emoji) {
+  const emojiColorMap = {
+    '❤️': { dark: '#e74c3c', light: '#fdf2f2' },
+    '💙': { dark: '#3498db', light: '#f0f8ff' },
+    '💚': { dark: '#2ecc71', light: '#f0fff4' },
+    '💛': { dark: '#f1c40f', light: '#fffef0' },
+    '💜': { dark: '#9b59b6', light: '#faf0ff' },
+    '🖤': { dark: '#2c3e50', light: '#f8f9fa' },
+    '🤍': { dark: '#95a5a6', light: '#ffffff' },
+    '🔥': { dark: '#e67e22', light: '#fff5f0' },
+    '⭐': { dark: '#f39c12', light: '#fffef0' },
+    '🌟': { dark: '#f1c40f', light: '#fffef0' },
+    '💎': { dark: '#3498db', light: '#f0f8ff' },
+    '🎯': { dark: '#e74c3c', light: '#fdf2f2' },
+    '🚀': { dark: '#9b59b6', light: '#faf0ff' },
+    '💫': { dark: '#f39c12', light: '#fffef0' },
+    '🎨': { dark: '#e67e22', light: '#fff5f0' },
+    '🎭': { dark: '#8e44ad', light: '#f8f4ff' },
+    '🎪': { dark: '#e74c3c', light: '#fdf2f2' },
+    '🏆': { dark: '#f39c12', light: '#fffef0' },
+    '🎊': { dark: '#e67e22', light: '#fff5f0' },
+    '🎉': { dark: '#e74c3c', light: '#fdf2f2' },
+    '😊': { dark: '#f39c12', light: '#fffef0' },
+    '😍': { dark: '#e74c3c', light: '#fdf2f2' },
+    '🥰': { dark: '#e91e63', light: '#fce4ec' },
+    '😎': { dark: '#2c3e50', light: '#f8f9fa' },
+    '🤩': { dark: '#f39c12', light: '#fffef0' },
+    '🥳': { dark: '#e67e22', light: '#fff5f0' },
+    '😇': { dark: '#3498db', light: '#f0f8ff' }
+  };
+  
+  return emojiColorMap[emoji] || { dark: '#000000', light: '#FFFFFF' };
+}
+
+// Function to extract colors from image
+async function extractImageColors(imagePath) {
+  try {
+    // Get image metadata
+    const metadata = await sharp(imagePath).metadata();
+    
+    // Resize to small size for color extraction
+    const { data } = await sharp(imagePath)
+      .resize(10, 10)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    
+    // Calculate average color
+    let r = 0, g = 0, b = 0;
+    const pixelCount = data.length / 3;
+    
+    for (let i = 0; i < data.length; i += 3) {
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+    }
+    
+    r = Math.floor(r / pixelCount);
+    g = Math.floor(g / pixelCount);
+    b = Math.floor(b / pixelCount);
+    
+    // Create darker version for QR code
+    const darkR = Math.floor(r * 0.3);
+    const darkG = Math.floor(g * 0.3);
+    const darkB = Math.floor(b * 0.3);
+    
+    return {
+      dark: `rgb(${darkR}, ${darkG}, ${darkB})`,
+      light: `rgb(${Math.min(255, r + 50)}, ${Math.min(255, g + 50)}, ${Math.min(255, b + 50)})`
+    };
+  } catch (error) {
+    console.error('Error extracting image colors:', error);
+    return { dark: '#000000', light: '#FFFFFF' };
   }
 }
 

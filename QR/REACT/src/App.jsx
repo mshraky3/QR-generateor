@@ -7,7 +7,6 @@ function App() {
   const [qrCode, setQrCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedEmoji, setSelectedEmoji] = useState('');
   const [customText, setCustomText] = useState('');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [useCustomPattern, setUseCustomPattern] = useState(false);
@@ -30,10 +29,6 @@ function App() {
       const formData = new FormData();
       formData.append('url', url.trim());
       formData.append('useCustomPattern', useCustomPattern.toString());
-      
-      if (useCustomPattern && selectedEmoji) {
-        formData.append('emoji', selectedEmoji);
-      }
       
       if (useCustomPattern && customText) {
         formData.append('customText', customText);
@@ -81,20 +76,12 @@ function App() {
     const file = e.target.files[0];
     if (file) {
       setUploadedFile(file);
-      setSelectedEmoji(''); 
       setCustomText(''); // Clear text when file is uploaded
     }
   };
 
-  const handleEmojiSelect = (emoji) => {
-    setSelectedEmoji(emoji);
-    setUploadedFile(null); 
-    setCustomText(''); // Clear text when emoji is selected
-  };
-
   const handleTextChange = (text) => {
     setCustomText(text);
-    setSelectedEmoji(''); // Clear emoji when text is entered
     setUploadedFile(null); // Clear file when text is entered
   };
 
@@ -131,17 +118,17 @@ function App() {
             {useCustomPattern && (
               <div className="custom-pattern-options">
                 <div className="text-section">
-                  <h3>Enter custom text:</h3>
+                  <h3>Enter custom text or emojis:</h3>
                   <input
                     type="text"
                     value={customText}
                     onChange={(e) => handleTextChange(e.target.value)}
-                    placeholder="e.g., X, , ❤️ , 😄 , 💎 , ABC..."
+                    placeholder="Type text like 'love', 'code', 'X' or emojis like ❤️, 🚀, ⭐"
                     className="text-input"
                     disabled={loading}
                     maxLength={10}
                   />
-                  <p className="text-hint">Enter letters, words, or symbols (max 10 characters)</p>
+                  <p className="text-hint">Enter letters, words, emojis, or symbols (max 10 characters)</p>
                 </div>
 
 
