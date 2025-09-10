@@ -597,7 +597,7 @@ function getTextComplexity(text) {
 async function getImageComplexity(imagePath) {
   try {
     if (!sharp) {
-      return 15; // Default high complexity if Sharp is not available
+      return 15; 
     }
     
     const metadata = await sharp(imagePath).metadata();

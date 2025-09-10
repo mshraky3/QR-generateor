@@ -7,7 +7,6 @@ function App() {
   const [qrCode, setQrCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [customText, setCustomText] = useState('');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [useCustomPattern, setUseCustomPattern] = useState(false);
   const [readabilityWarning, setReadabilityWarning] = useState('');
@@ -30,9 +29,6 @@ function App() {
       formData.append('url', url.trim());
       formData.append('useCustomPattern', useCustomPattern.toString());
       
-      if (useCustomPattern && customText) {
-        formData.append('customText', customText);
-      }
       
       if (useCustomPattern && uploadedFile) {
         formData.append('customImage', uploadedFile);
@@ -76,13 +72,7 @@ function App() {
     const file = e.target.files[0];
     if (file) {
       setUploadedFile(file);
-      setCustomText(''); // Clear text when file is uploaded
     }
-  };
-
-  const handleTextChange = (text) => {
-    setCustomText(text);
-    setUploadedFile(null); // Clear file when text is entered
   };
 
   return (
@@ -117,27 +107,6 @@ function App() {
 
             {useCustomPattern && (
               <div className="custom-pattern-options">
-                <div className="text-section">
-                  <h3>Enter custom text or emojis:</h3>
-                  <input
-                    type="text"
-                    value={customText}
-                    onChange={(e) => handleTextChange(e.target.value)}
-                    placeholder="Type text like 'love', 'code', 'X' or emojis like ❤️, 🚀, ⭐"
-                    className="text-input"
-                    disabled={loading}
-                    maxLength={10}
-                  />
-                  <p className="text-hint">Enter letters, words, emojis, or symbols (max 10 characters)</p>
-                </div>
-
-
-
-
-                <div className="divider">
-                  <span>OR</span>
-                </div>
-
                 <div className="file-upload-section">
                   <h3>Upload an image:</h3>
                   <div className="file-upload">
