@@ -46,13 +46,8 @@ const upload = multer({
 
 // Middleware
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://qr-generator-app.vercel.app',
-    'https://*.vercel.app',
-    'https://qr-code-generator-free.vercel.app'
-  ],
-  credentials: true,
+  origin: '*',
+  credentials: false,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

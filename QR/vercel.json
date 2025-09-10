@@ -16,16 +16,11 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "BACKEND/server.js"
+      "dest": "/BACKEND/server.js"
     },
     {
       "src": "/(.*)",
-      "dest": "REACT/dist/$1"
+      "dest": "/REACT/dist/$1"
     }
-  ],
-  "functions": {
-    "BACKEND/server.js": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
