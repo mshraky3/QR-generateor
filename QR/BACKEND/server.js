@@ -88,11 +88,14 @@ app.post('/api/generate-qr', upload.single('customImage'), async (req, res) => {
       });
     }
 
-    // Clean up uploaded file if it exists
+    // Clean up uploaded file immediately after processing
     if (req.file) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Error deleting uploaded file:', err);
-      });
+      try {
+        fs.unlinkSync(req.file.path);
+        console.log('Uploaded file deleted:', req.file.path);
+      } catch (err) {
+        console.error('Error deleting uploaded file:', err);
+      }
     }
 
     // Validate QR code readability
@@ -181,11 +184,13 @@ async function generateTextQRCode(url, customText) {
     
     svg += '</svg>';
     
-    // Convert SVG to data URL
+    // Convert SVG to PNG using Sharp
     const svgBuffer = Buffer.from(svg);
-    const dataURL = `data:image/svg+xml;base64,${svgBuffer.toString('base64')}`;
+    const pngBuffer = await sharp(svgBuffer)
+      .png()
+      .toBuffer();
     
-    return dataURL;
+    return `data:image/png;base64,${pngBuffer.toString('base64')}`;
   } catch (error) {
     console.error('Error creating text QR code:', error);
     throw error;
@@ -231,11 +236,13 @@ async function generateEmojiQRCode(url, emoji) {
     
     svg += '</svg>';
     
-    // Convert SVG to data URL
+    // Convert SVG to PNG using Sharp
     const svgBuffer = Buffer.from(svg);
-    const dataURL = `data:image/svg+xml;base64,${svgBuffer.toString('base64')}`;
+    const pngBuffer = await sharp(svgBuffer)
+      .png()
+      .toBuffer();
     
-    return dataURL;
+    return `data:image/png;base64,${pngBuffer.toString('base64')}`;
   } catch (error) {
     console.error('Error creating emoji QR code:', error);
     throw error;
@@ -295,11 +302,13 @@ async function generateImageQRCode(url, imagePath) {
     
     svg += '</svg>';
     
-    // Convert SVG to data URL
+    // Convert SVG to PNG using Sharp
     const svgBuffer = Buffer.from(svg);
-    const dataURL = `data:image/svg+xml;base64,${svgBuffer.toString('base64')}`;
+    const pngBuffer = await sharp(svgBuffer)
+      .png()
+      .toBuffer();
     
-    return dataURL;
+    return `data:image/png;base64,${pngBuffer.toString('base64')}`;
   } catch (error) {
     console.error('Error creating image QR code:', error);
     throw error;
