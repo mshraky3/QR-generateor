@@ -2,17 +2,30 @@ const express = require('express');
 const cors = require('cors');
 const QRCode = require('qrcode');
 const multer = require('multer');
-const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+
+// Try to load Sharp with fallback
+let sharp;
+try {
+  sharp = require('sharp');
+  console.log('Sharp loaded successfully');
+} catch (error) {
+  console.error('Sharp failed to load:', error.message);
+  console.log('Falling back to basic QR generation without image processing');
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads');
+// Create uploads directory if it doesn't exist (use temp directory for serverless)
+const uploadsDir = process.env.NODE_ENV === 'production' 
+  ? path.join(os.tmpdir(), 'qr-uploads')
+  : path.join(__dirname, 'uploads');
+
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
+  fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 // Configure multer for file uploads
@@ -58,9 +71,16 @@ app.use('/uploads', express.static(uploadsDir));
 // Generate QR code endpoint
 app.post('/api/generate-qr', upload.single('customImage'), async (req, res) => {
   try {
+    console.log('QR generation request received:', {
+      body: req.body,
+      hasFile: !!req.file,
+      fileInfo: req.file ? { name: req.file.originalname, size: req.file.size } : null
+    });
+
     const { url, emoji, customText, useCustomPattern } = req.body;
     
     if (!url) {
+      console.log('Error: URL is required');
       return res.status(400).json({ error: 'URL is required' });
     }
 
@@ -68,15 +88,18 @@ app.post('/api/generate-qr', upload.single('customImage'), async (req, res) => {
     try {
       new URL(url);
     } catch (error) {
+      console.log('Error: Invalid URL format:', url);
       return res.status(400).json({ error: 'Invalid URL format' });
     }
 
     let qrCodeDataURL;
 
     if (useCustomPattern === 'true' && (customText || req.file)) {
+      console.log('Generating custom QR code with pattern');
       // Generate QR code with custom pattern
       qrCodeDataURL = await generateCustomQRCode(url, null, customText, req.file);
     } else {
+      console.log('Generating standard QR code');
       // Generate standard QR code
       qrCodeDataURL = await QRCode.toDataURL(url, {
         width: 300,
@@ -88,6 +111,7 @@ app.post('/api/generate-qr', upload.single('customImage'), async (req, res) => {
       });
     }
 
+    console.log('QR code generated successfully, validating readability');
     // Validate QR code readability
     const validationResult = await validateQRCodeReadability(url, qrCodeDataURL, null, customText, req.file);
 
@@ -101,6 +125,7 @@ app.post('/api/generate-qr', upload.single('customImage'), async (req, res) => {
       }
     }
 
+    console.log('QR generation completed successfully');
     res.json({ 
       success: true, 
       qrCode: qrCodeDataURL,
@@ -111,7 +136,11 @@ app.post('/api/generate-qr', upload.single('customImage'), async (req, res) => {
 
   } catch (error) {
     console.error('Error generating QR code:', error);
-    res.status(500).json({ error: 'Failed to generate QR code' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to generate QR code',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 });
 
@@ -161,6 +190,19 @@ async function generateCustomQRCode(url, emoji, customText, uploadedFile) {
 // Function to generate text-based QR code
 async function generateTextQRCode(url, customText) {
   try {
+    // If Sharp is not available, fall back to standard QR code
+    if (!sharp) {
+      console.log('Sharp not available, falling back to standard QR code');
+      return await QRCode.toDataURL(url, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+    }
+
     // First, get the QR code matrix
     const qrMatrix = await QRCode.create(url, {
       width: 300,
@@ -207,13 +249,34 @@ async function generateTextQRCode(url, customText) {
     return `data:image/png;base64,${pngBuffer.toString('base64')}`;
   } catch (error) {
     console.error('Error creating text QR code:', error);
-    throw error;
+    // Fall back to standard QR code if custom generation fails
+    return await QRCode.toDataURL(url, {
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
   }
 }
 
 // Function to generate emoji-based QR code
 async function generateEmojiQRCode(url, customText) {
   try {
+    // If Sharp is not available, fall back to standard QR code
+    if (!sharp) {
+      console.log('Sharp not available, falling back to standard QR code');
+      return await QRCode.toDataURL(url, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+    }
+
     // Extract the first emoji from the text
     const firstEmoji = extractFirstEmoji(customText);
     
@@ -262,13 +325,34 @@ async function generateEmojiQRCode(url, customText) {
     return `data:image/png;base64,${pngBuffer.toString('base64')}`;
   } catch (error) {
     console.error('Error creating emoji QR code:', error);
-    throw error;
+    // Fall back to standard QR code if custom generation fails
+    return await QRCode.toDataURL(url, {
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
   }
 }
 
 // Function to generate image-based QR code
 async function generateImageQRCode(url, imagePath) {
   try {
+    // If Sharp is not available, fall back to standard QR code
+    if (!sharp) {
+      console.log('Sharp not available, falling back to standard QR code');
+      return await QRCode.toDataURL(url, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+    }
+
     // First, get the QR code matrix
     const qrMatrix = await QRCode.create(url, {
       width: 300,
@@ -328,7 +412,15 @@ async function generateImageQRCode(url, imagePath) {
     return `data:image/png;base64,${pngBuffer.toString('base64')}`;
   } catch (error) {
     console.error('Error creating image QR code:', error);
-    throw error;
+    // Fall back to standard QR code if custom generation fails
+    return await QRCode.toDataURL(url, {
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
   }
 }
 
@@ -504,6 +596,10 @@ function getTextComplexity(text) {
 // Function to get image complexity score
 async function getImageComplexity(imagePath) {
   try {
+    if (!sharp) {
+      return 15; // Default high complexity if Sharp is not available
+    }
+    
     const metadata = await sharp(imagePath).metadata();
     
     let complexity = 10; // Base complexity for images
