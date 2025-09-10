@@ -58,7 +58,9 @@ function App() {
         setError('Failed to generate QR code');
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong');
+      console.error('Error generating QR code:', err);
+      const errorMessage = err.response?.data?.error || err.message || 'Something went wrong';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -111,6 +113,7 @@ function App() {
               placeholder="Enter your URL here..."
               className="url-input"
               disabled={loading}
+              autoComplete="off"
             />
             
             <div className="custom-options">

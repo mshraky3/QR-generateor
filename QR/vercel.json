@@ -23,7 +23,9 @@
       "dest": "REACT/dist/$1"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
+  "functions": {
+    "BACKEND/server.js": {
+      "maxDuration": 30
+    }
   }
 }
