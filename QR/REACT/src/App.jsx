@@ -43,7 +43,7 @@ function App() {
         formData.append('customImage', uploadedFile);
       }
 
-      const response = await axios.post('/api/generate-qr', formData, {
+      const response = await axios.post('https://qr-generateor-api.vercel.app/api/generate-qr', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
