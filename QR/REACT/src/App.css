@@ -97,8 +97,11 @@
   text-align: center;
   transition: all 0.3s ease;
   outline: none;
-  text-transform: uppercase;
   letter-spacing: 1px;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', 'EmojiSymbols', 'EmojiOne Mozilla', 'Twemoji Mozilla', 'Segoe UI Symbol', sans-serif;
+  font-variant-emoji: emoji;
+  -webkit-font-feature-settings: "liga" 1, "kern" 1;
+  font-feature-settings: "liga" 1, "kern" 1;
 }
 
 .text-input:focus {

@@ -73,9 +73,9 @@ app.post('/api/generate-qr', upload.single('customImage'), async (req, res) => {
 
     let qrCodeDataURL;
 
-    if (useCustomPattern === 'true' && (emoji || customText || req.file)) {
+    if (useCustomPattern === 'true' && (customText || req.file)) {
       // Generate QR code with custom pattern
-      qrCodeDataURL = await generateCustomQRCode(url, emoji, customText, req.file);
+      qrCodeDataURL = await generateCustomQRCode(url, null, customText, req.file);
     } else {
       // Generate standard QR code
       qrCodeDataURL = await QRCode.toDataURL(url, {
@@ -88,7 +88,10 @@ app.post('/api/generate-qr', upload.single('customImage'), async (req, res) => {
       });
     }
 
-    // Clean up uploaded file immediately after processing
+    // Validate QR code readability
+    const validationResult = await validateQRCodeReadability(url, qrCodeDataURL, null, customText, req.file);
+
+    // Clean up uploaded file after processing and validation
     if (req.file) {
       try {
         fs.unlinkSync(req.file.path);
@@ -97,9 +100,6 @@ app.post('/api/generate-qr', upload.single('customImage'), async (req, res) => {
         console.error('Error deleting uploaded file:', err);
       }
     }
-
-    // Validate QR code readability
-    const validationResult = await validateQRCodeReadability(url, qrCodeDataURL, emoji, customText, req.file);
 
     res.json({ 
       success: true, 
@@ -148,14 +148,15 @@ async function generateCustomQRCode(url, emoji, customText, uploadedFile) {
 // Function to generate text-based QR code
 async function generateTextQRCode(url, customText) {
   try {
-    // For text QR codes, create a standard QR code with custom colors
-    // This is more reliable than trying to embed text in each cell
+    // Create QR code with colors based on the text
+    const textColors = getTextColors(customText);
+    
     const qrCodeDataURL = await QRCode.toDataURL(url, {
       width: 300,
       margin: 2,
       color: {
-        dark: '#000000',
-        light: '#FFFFFF'
+        dark: textColors.dark,
+        light: textColors.light
       },
       rendererOpts: {
         quality: 0.92
@@ -345,6 +346,26 @@ function getEmojiColors(emoji) {
   };
   
   return emojiColorMap[emoji] || { dark: '#000000', light: '#FFFFFF' };
+}
+
+// Function to get colors based on text
+function getTextColors(text) {
+  // Generate colors based on text content
+  const textColorMap = {
+    'love': { dark: '#e74c3c', light: '#fdf2f2' },
+    'code': { dark: '#3498db', light: '#f0f8ff' },
+    'x': { dark: '#2c3e50', light: '#f8f9fa' },
+    'abc': { dark: '#9b59b6', light: '#faf0ff' },
+    'test': { dark: '#f39c12', light: '#fffef0' },
+    'hello': { dark: '#2ecc71', light: '#f0fff4' },
+    'world': { dark: '#e67e22', light: '#fff5f0' }
+  };
+  
+  const lowerText = text.toLowerCase();
+  return textColorMap[lowerText] || { 
+    dark: `#${Math.floor(Math.random()*16777215).toString(16)}`, 
+    light: '#ffffff' 
+  };
 }
 
 // Function to extract colors from image
